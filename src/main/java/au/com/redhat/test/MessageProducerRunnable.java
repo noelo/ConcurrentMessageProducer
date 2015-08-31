@@ -37,6 +37,7 @@ public class MessageProducerRunnable implements Runnable {
     private void preRun() throws Exception {
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
         producer = session.createProducer(new ActiveMQQueue(dest));
+        producer.setDeliveryMode(deliveryMode);
     }
 
 
@@ -47,17 +48,14 @@ public class MessageProducerRunnable implements Runnable {
         try {
             preRun();
 
-
             for (int i = 1; i <= msgCount; i++) {
                 if (compression) {
                     byte[] compressedData = doCompression(stringPayload);
                     BytesMessage msg = session.createBytesMessage();
-                    msg.setJMSDeliveryMode(deliveryMode);
                     msg.writeBytes(compressedData);
                     producer.send(msg);
                 } else {
                     TextMessage msg = session.createTextMessage(stringPayload);
-                    msg.setJMSDeliveryMode(deliveryMode);
                     producer.send(msg);
                 }
 

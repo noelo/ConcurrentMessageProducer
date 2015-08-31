@@ -79,7 +79,7 @@ public class MessageProducerCompressed {
 
         long endTime = System.currentTimeMillis();
 
-        System.out.println("Time to send " + (messages * threadCount) + " message is " + (endTime - startTime) + " msec"+" TPS "+(1000/((endTime - startTime)/(messages*threadCount))));
+        System.out.println("Time to send " + (messages * threadCount) + " message is " + (endTime - startTime) + " msec");//+" TPS "+(1000/((endTime - startTime)/(messages*threadCount))));
         connection.close();
 
         execpool.shutdownNow();
