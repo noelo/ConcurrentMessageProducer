@@ -15,14 +15,15 @@ public class MessageProducerRunnable implements Runnable {
     private Session session;
     private int msgCount;
     private MessageProducer producer;
-    private String dest;
+    private Destination dest;
     private boolean compression;
     private String stringPayload;
     private String threadID;
     private CountDownLatch latch;
     private int deliveryMode;
+    private long inter_msg_delay;
 
-    public MessageProducerRunnable(int inMsgCount, Connection inConn, String inDest, boolean inCompression, int inDeliveryMode,String inThreadID,CountDownLatch inLatch,String inBody) {
+    public MessageProducerRunnable(int inMsgCount, Connection inConn, Destination inDest, boolean inCompression, int inDeliveryMode, long inter_msg_delay, String inThreadID, CountDownLatch inLatch, String inBody) {
         this.connection = inConn;
         this.msgCount = inMsgCount;
         this.dest = inDest;
@@ -31,12 +32,13 @@ public class MessageProducerRunnable implements Runnable {
         this.threadID = inThreadID;
         this.latch = inLatch;
         this.stringPayload = inBody;
+        this.inter_msg_delay = inter_msg_delay;
     }
 
 
     private void preRun() throws Exception {
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        producer = session.createProducer(new ActiveMQQueue(dest));
+        producer = session.createProducer(dest);
         producer.setDeliveryMode(deliveryMode);
     }
 
@@ -49,22 +51,35 @@ public class MessageProducerRunnable implements Runnable {
             preRun();
 
             for (int i = 1; i <= msgCount; i++) {
-                if (compression) {
-                    byte[] compressedData = doCompression(stringPayload);
-                    BytesMessage msg = session.createBytesMessage();
-                    msg.writeBytes(compressedData);
-                    producer.send(msg);
-                } else {
-                    TextMessage msg = session.createTextMessage(stringPayload);
-                    producer.send(msg);
-                }
+                try {
+                    if (inter_msg_delay > 0) {
+                        Thread.sleep(inter_msg_delay);
+                    }
+                    if (compression) {
+                        byte[] compressedData = doCompression(stringPayload);
+                        BytesMessage msg = session.createBytesMessage();
+                        msg.writeBytes(compressedData);
+                        producer.send(msg);
+                    } else {
+                        TextMessage msg;
+                        if (stringPayload.isEmpty()) {
+                            msg = session.createTextMessage("Autogenerate message " + i + " " + System.currentTimeMillis());
+                        } else {
+                            msg = session.createTextMessage(stringPayload);
+                        }
+                        producer.send(msg);
+                    }
 
-                if ((i % 1000) == 0) {
-                    System.out.println(String.format(threadName+" Sent %d messages", i));
+                    if ((i % 1000) == 0) {
+                        System.out.println(String.format(threadName + " Sent %d messages", i));
+                    }
+                } catch (Exception ex) {
+
+                    System.out.println(threadName + " Exception sending message " + ex);
                 }
             }
 
-            System.out.println(threadName+ " Finished sending "+msgCount+" messages");
+            System.out.println(threadName + " Finished sending " + msgCount + " messages");
 
             latch.countDown();
             producer.close();
@@ -72,7 +87,7 @@ public class MessageProducerRunnable implements Runnable {
 
 
         } catch (Exception ex) {
-            System.out.println(threadID+ " Exception thrown " + ex);
+            System.out.println(threadID + " Exception thrown " + ex);
             return;
         }
 
